@@ -5,6 +5,9 @@ const path = require("path");
 require("dotenv").config();
 
 const port = process.env.PORT || 3000;
+
+const sequelize = require("./util/database");
+const user = require("./models/user");
 const errorRoutes = require("./routes/404");
 const userRoutes = require("./routes/userRoutes");
 
@@ -19,6 +22,14 @@ app.use(express.static("views"));
 app.use("/", userRoutes);
 app.use(errorRoutes);
 
-app.listen(port, () => {
-  console.log("app is listening to port ", port);
-});
+sequelize
+  // .sync({ force: true })
+  .sync()
+  .then(() => {
+    app.listen(port, () => {
+      console.log("app is listening to port ", port);
+    });
+  })
+  .catch((err) => {
+    console.log(err);
+  });
