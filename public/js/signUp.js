@@ -12,11 +12,13 @@ async function getFormValue(e) {
   };
   try {
     const add = await axios.post("/sign-up", myObj);
+    alert("Signup Successful");
     clear();
     // console.log(add, "post");
     window.location.href = "/login";
   } catch (err) {
     console.log(err);
+    alert("Email already exists");
     document.body.innerHTML += `<div style="color:red;">${err} <div>`;
   }
 }
