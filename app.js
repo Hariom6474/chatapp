@@ -10,6 +10,7 @@ const sequelize = require("./util/database");
 const user = require("./models/user");
 const errorRoutes = require("./routes/404");
 const userRoutes = require("./routes/userRoutes");
+const mainRoutes = require("./routes/mainRoutes");
 
 const app = express();
 
@@ -20,6 +21,7 @@ app.use(express.static(path.join(__dirname, "public")));
 app.use(express.static("views"));
 
 app.use("/", userRoutes);
+app.use("/", mainRoutes);
 app.use(errorRoutes);
 
 sequelize
