@@ -7,7 +7,8 @@ require("dotenv").config();
 const port = process.env.PORT || 3000;
 
 const sequelize = require("./util/database");
-const user = require("./models/user");
+const User = require("./models/user");
+const userHistory = require("./models/chatHistory");
 const errorRoutes = require("./routes/404");
 const userRoutes = require("./routes/userRoutes");
 const mainRoutes = require("./routes/mainRoutes");
@@ -23,6 +24,9 @@ app.use(express.static("views"));
 app.use("/", userRoutes);
 app.use("/", mainRoutes);
 app.use(errorRoutes);
+
+User.hasMany(userHistory);
+userHistory.belongsTo(User, { constraints: true });
 
 sequelize
   // .sync({ force: true })

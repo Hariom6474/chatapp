@@ -64,5 +64,7 @@ exports.postLogin = async (req, res, next) => {
 };
 
 function generateAccessToken(id) {
-  return jwt.sign({ userId: id}, process.env.TOKEN_SECRET);
+  return jwt.sign({ userId: id }, process.env.TOKEN_SECRET, {
+    expiresIn: "1800s",
+  });
 }
