@@ -3,16 +3,17 @@ const router = express.Router();
 const userControl = require("../controller/userControl");
 const userAuthentication = require("../middleware/auth");
 
-router.get("/home", userControl.user);
-router.post(
-  "/home",
-  userAuthentication.authenticate,
-  userControl.postAddMessage
-);
+router.get("/", userControl.user);
+router.post("/", userAuthentication.authenticate, userControl.postAddMessage);
+// router.get(
+//   "/get-message",
+//   userAuthentication.authenticate,
+//   userControl.getUserMessage
+// );
 router.get(
-  "/home/get-message",
+  "/get-users",
   userAuthentication.authenticate,
-  userControl.getUserMessage
+  userControl.showUsers
 );
 
 module.exports = router;
