@@ -10,11 +10,13 @@ const sequelize = require("./util/database");
 const User = require("./models/user");
 const Chat = require("./models/chatHistory");
 const Group = require("./models/group");
+const Admin = require("./models/admin");
 const GroupUser = require("./models/group_user");
 const errorRoutes = require("./routes/404");
 const userRoutes = require("./routes/userRoutes");
 const mainRoutes = require("./routes/mainRoutes");
 const groupRoutes = require("./routes/group");
+const adminRoutes = require("./routes/admin");
 
 const app = express();
 
@@ -27,6 +29,7 @@ app.use(express.static("views"));
 app.use("/", userRoutes);
 app.use("/home", mainRoutes);
 app.use("/group", groupRoutes);
+app.use("/admin", adminRoutes);
 app.use(errorRoutes);
 
 User.hasMany(Chat);
@@ -37,6 +40,9 @@ Chat.belongsTo(Group, { constraints: true });
 
 User.belongsToMany(Group, { through: GroupUser });
 Group.belongsToMany(User, { through: GroupUser });
+
+Admin.belongsTo(User, { foreignKey: "userId" });
+User.hasMany(Admin, { foreignKey: "userId" });
 
 sequelize
   // .sync({ force: true })

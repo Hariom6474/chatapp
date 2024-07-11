@@ -1,6 +1,18 @@
 const token = localStorage.getItem("token");
 let groupId;
 
+//for adding admin
+const addAdminForm = document.getElementById("addAdminForm");
+addAdminForm.addEventListener("submit", addAdmin);
+
+//for adding users to an existing group
+const addUserForm = document.getElementById("addUserForm");
+addUserForm.addEventListener("submit", addUsers);
+
+//for removing users from group;
+const removeUserForm = document.getElementById("removeUserForm");
+removeUserForm.addEventListener("submit", removeUser);
+
 async function addMessage(e) {
   e.preventDefault();
   let message = document.getElementById("inputMessage").value;
@@ -71,6 +83,9 @@ function parseJwt(token) {
 let intervalId;
 
 window.addEventListener("DOMContentLoaded", async () => {
+  if (!token) {
+    window.location.href = "/login";
+  }
   try {
     // await refreshMessages();
     await displayAllUsers();
@@ -140,6 +155,7 @@ async function createGroup(e) {
   const groupName = document.getElementById("group-name").value;
   const checkboxes = document.getElementsByName("users");
   const users = [];
+  const userId = parseJwt(token).userId;
   if (groupName.trim() === "") {
     document.getElementById("error-message").innerText =
       "Please enter a group name";
@@ -207,6 +223,9 @@ async function showAllChats(e) {
         createListItem(item);
       });
     }
+    creatingDropdownButton();
+    showGroupInfo();
+    permission();
   } catch (err) {
     console.error(err);
   }
@@ -224,5 +243,307 @@ async function getGroupsOnReload() {
     }
   } catch (err) {
     console.log(err);
+  }
+}
+
+function creatingDropdownButton() {
+  const list = document.getElementById("dropdownMenu");
+  list.innerHTML = "";
+
+  //show group info who is admin and user
+  const li0 = document.createElement("li");
+  const btn0 = document.createElement("button");
+  btn0.className = "dropdown-item";
+  btn0.setAttribute("data-bs-toggle", "modal");
+  btn0.setAttribute("data-bs-target", "#groupInfoModal");
+  btn0.id = "groupInfo";
+  btn0.innerHTML = "Group Info";
+  li0.appendChild(btn0);
+  list.appendChild(li0);
+
+  //Add admin button
+  const li1 = document.createElement("li");
+  const btn1 = document.createElement("button");
+  btn1.className = "dropdown-item";
+  btn1.setAttribute("data-bs-toggle", "modal");
+  btn1.setAttribute("data-bs-target", "#addAdminModal");
+  btn1.id = "addAdmin";
+  btn1.innerHTML = "Add new admin";
+  li1.appendChild(btn1);
+  list.appendChild(li1);
+
+  //adding users to an existing group
+  const li2 = document.createElement("li");
+  const btn2 = document.createElement("button");
+  btn2.className = "dropdown-item";
+  btn2.setAttribute("data-bs-toggle", "modal");
+  btn2.setAttribute("data-bs-target", "#addUserModal");
+  btn2.id = "addMembers";
+  btn2.innerHTML = "Add members";
+  li2.appendChild(btn2);
+  list.appendChild(li2);
+
+  //removing users from an existing group
+  const li3 = document.createElement("li");
+  const btn3 = document.createElement("button");
+  btn3.className = "dropdown-item";
+  btn3.setAttribute("data-bs-toggle", "modal");
+  btn3.setAttribute("data-bs-target", "#removeUserModal");
+  btn3.id = "removeMembers";
+  btn3.innerHTML = "Remove members";
+  li3.appendChild(btn3);
+  list.appendChild(li3);
+}
+
+async function showGroupInfo() {
+  groupId = localStorage.getItem("groupId");
+  const res1 = await axios.get(`group/showUsersOfGroup?groupId=${groupId}`, {
+    headers: { Authorization: token },
+  });
+  // console.log(res1.data.users[0].users[0].name);
+  //Displaying group Name
+  document.getElementById(
+    "groupInfoGroupName"
+  ).innerHTML = `${res1.data.users[0].groupName}`;
+  //displaying Number of Members in the group
+  document.getElementById(
+    "groupInfoMemberCount"
+  ).innerHTML = `Group :${res1.data.users[0].users.length} members`;
+  //for displaying members of group
+  const memberList = document.getElementById("groupInfoMemberList");
+  memberList.innerHTML = "";
+  const a = document.createElement("h4");
+  a.innerHTML = "Group Members";
+  memberList.append(a);
+  for (let i = 0; i < res1.data.users[0].users.length; i++) {
+    const li = document.createElement("li");
+    li.className = "list-group-item";
+    li.appendChild(
+      document.createTextNode(`${res1.data.users[0].users[i].name}`)
+    );
+    memberList.append(li);
+  }
+  //displaying Admins of group
+  const adminList = document.getElementById("groupInfoadminList");
+  adminList.innerHTML = "";
+  const h4 = document.createElement("h4");
+  h4.innerHTML = "Group Admins";
+  adminList.append(h4);
+  const res2 = await axios.get(`/group/getGroupAdmins?groupId=${groupId}`, {
+    headers: { Authorization: token },
+  });
+  // console.log(res2.data.admins);
+  for (let i = 0; i < res2.data.admins.length; i++) {
+    const li = document.createElement("li");
+    li.className = "list-group-item";
+    li.appendChild(document.createTextNode(`${res2.data.admins[i]}`));
+    adminList.append(li);
+  }
+}
+
+async function permission() {
+  creatingDropdownButton();
+  const groupid = localStorage.getItem("groupId");
+  try {
+    if (groupId) {
+      const res1 = await axios.get(`/group/checkAdmin?groupId=${groupid}`, {
+        headers: { Authorization: token },
+      });
+      if (res1.data.success === false) {
+        document.getElementById("addAdmin").remove();
+        document.getElementById("addMembers").remove();
+        document.getElementById("removeMembers").remove();
+      } else {
+        showUsersForAddingAdmin();
+        showUsersForAddingMembers();
+        showUsersForRemovingMembers();
+      }
+    }
+  } catch (err) {
+    console.log(err);
+  }
+}
+
+async function showUsersForAddingAdmin() {
+  const button = document.getElementById("addAdminButton");
+  const userList = document.getElementById("addAdminList");
+  try {
+    button.style.visibility = "visible";
+    let groupId = localStorage.getItem("groupId") || 0;
+    const res = await axios.get(`/admin/getUsers?groupId=${groupId}`, {
+      headers: { Authorization: token },
+    });
+    // console.log(res.data[0].name);
+    userList.innerHTML = "";
+    if (res.data.length > 0) {
+      res.data.forEach((user) => {
+        const input = document.createElement("input");
+        input.type = "checkbox";
+        input.name = "adminUsers";
+        input.value = user.id;
+        const p = document.createElement("p");
+        p.appendChild(input);
+        p.appendChild(document.createTextNode(user.name));
+        userList.appendChild(p);
+      });
+    } else {
+      userList.innerHTML = userList.innerHTML + "<h4>No Users Found!</h4>";
+      button.style.visibility = "hidden";
+    }
+  } catch (err) {
+    console.log(err);
+  }
+}
+
+async function addAdmin(e) {
+  e.preventDefault();
+  const checkboxes = document.getElementsByName("adminUsers");
+  const users = Array.from(checkboxes)
+    .filter((checkbox) => checkbox.checked)
+    .map((checkbox) => checkbox.value);
+  if (users.length === 0) {
+    document.getElementById("error-message1").innerText =
+      "Please select at least one checkbox.";
+    return;
+  }
+  const details = { users };
+  const groupId = localStorage.getItem("groupId");
+  if (groupId) {
+    try {
+      const res = await axios.post(
+        `/admin/addAdmin?groupId=${groupId}`,
+        details,
+        { headers: { Authorization: token } }
+      );
+      document.getElementById("addAdminModalClose").click();
+      document.getElementById("addAdminForm").reset();
+      document.getElementById("error-message1").innerText = "";
+      window.location.reload();
+    } catch (error) {
+      console.error("Error creating group:", error);
+    }
+  }
+}
+
+//for adding users to an existing group
+async function showUsersForAddingMembers() {
+  const button = document.getElementById("addUserButton");
+  const userList = document.getElementById("addUserList");
+  try {
+    button.style.visibility = "visible";
+    const groupId = localStorage.getItem("groupId") || 0;
+    const res = await axios.get(
+      `/group/showUsersForAdding?groupId=${groupId}`,
+      { headers: { Authorization: token } }
+    );
+    userList.innerHTML = "";
+    if (res.data.length > 0) {
+      res.data.forEach((user) => {
+        const input = document.createElement("input");
+        input.type = "checkbox";
+        input.name = "addUsers";
+        input.value = user.id;
+        const p = document.createElement("p");
+        p.appendChild(input);
+        p.appendChild(document.createTextNode(user.name));
+        userList.appendChild(p);
+      });
+    } else {
+      userList.innerHTML = userList.innerHTML + "<h4>No Users Found!</h4>";
+      button.style.visibility = "hidden";
+    }
+  } catch (err) {
+    console.log(err);
+  }
+}
+
+async function addUsers(e) {
+  e.preventDefault();
+  const checkboxes = document.getElementsByName("addUsers");
+  const users = Array.from(checkboxes)
+    .filter((checkbox) => checkbox.checked)
+    .map((checkbox) => checkbox.value);
+  if (users.length === 0) {
+    document.getElementById("error-message1").innerText =
+      "Please select at least one checkbox.";
+    return;
+  }
+  const details = { users };
+  const groupId = localStorage.getItem("groupId");
+  if (groupId) {
+    try {
+      const res = await axios.post(
+        `/group/addUsers?groupId=${groupId}`,
+        details,
+        { headers: { Authorization: token } }
+      );
+      document.getElementById("addUserModalClose").click();
+      addUserForm.reset();
+      window.location.reload();
+      document.getElementById("error-message3").innerText = "";
+    } catch (error) {
+      console.error("Error creating group:", error);
+    }
+  }
+}
+
+async function showUsersForRemovingMembers() {
+  const button = document.getElementById("removeUserButton");
+  const userList = document.getElementById("removeUserList");
+  try {
+    button.style.visibility = "visible";
+    const groupId = localStorage.getItem("groupId") || 0;
+    const res = await axios.get(
+      `/group/showUsersForRemoving?groupId=${groupId}`,
+      { headers: { Authorization: token } }
+    );
+    userList.innerHTML = "";
+    if (res.data.length > 0) {
+      res.data.forEach((user) => {
+        const input = document.createElement("input");
+        input.type = "checkbox";
+        input.name = "rUsers";
+        input.value = user.id;
+        const p = document.createElement("p");
+        p.appendChild(input);
+        p.appendChild(document.createTextNode(user.name));
+        userList.appendChild(p);
+      });
+    } else {
+      userList.innerHTML = userList.innerHTML + "<h4>No Users Found!</h4>";
+      button.style.visibility = "hidden";
+    }
+  } catch (err) {
+    console.log(err);
+  }
+}
+
+async function removeUser(e) {
+  e.preventDefault();
+  const checkboxes = document.getElementsByName("rUsers");
+  const users = Array.from(checkboxes)
+    .filter((checkbox) => checkbox.checked)
+    .map((checkbox) => checkbox.value);
+  if (users.length === 0) {
+    document.getElementById("error-message1").innerText =
+      "Please select at least one checkbox.";
+    return;
+  }
+  const details = { users };
+  const groupId = localStorage.getItem("groupId") || 0;
+  if (groupId) {
+    try {
+      const res = await axios.post(
+        `/group/removeUsers?groupId=${groupId}`,
+        details,
+        { headers: { Authorization: token } }
+      );
+      document.getElementById("removeUserModalClose").click();
+      removeUserForm.reset();
+      window.location.reload();
+      document.getElementById("error-message2").innerText = "";
+    } catch (error) {
+      console.error("Error creating group:", error);
+    }
   }
 }

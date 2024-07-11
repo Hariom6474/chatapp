@@ -48,6 +48,96 @@
                         </div>
                     </div>
                 </div>
+                <!-- modal for group info-->
+                <div class="modal fade" id="groupInfoModal">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-body" style="background-color: #cde2e4" id="groupInfoBody">
+                                <h2 style="text-align: center;" id="groupInfoGroupName"></h2>
+                                <p style="text-align: center;" id="groupInfoMemberCount"></p>
+                                <br>
+                                <ul id="groupInfoadminList" class="list-group" style="list-style: none;"></ul>
+                                <br>
+                                <ul id="groupInfoMemberList" class="list-group" style="list-style: none;"></ul>
+                            </div>
+                            <div class="modal-footer" style="background-color: #cde2e4">
+                                <button class="btn btn-outline-danger" data-bs-dismiss="modal"
+                                    data-bs-target="#modal">Close</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- modal for adding admin of group -->
+                <div class="modal fade" id="addAdminModal">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header" style="background-color: #0a399ebe;">
+                                Add new Admin </div>
+                            <div class="modal-body" style="background-color: #cde2e4">
+                                <form id="addAdminForm">
+                                    <div id="addAdminList" class="pre-scrollable"></div>
+                                    <div id="error-message1" style="color: red;
+                                    font-size: 14px;
+                                    margin-top: 5px;"></div>
+                                </form>
+                                <div class="modal-footer" style="background-color: #cde2e4">
+                                    <button class="btn btn-outline-success" type="submit" id="addAdminButton"
+                                        form="addAdminForm">Add</button>
+                                    <button class="btn btn-outline-danger" data-bs-dismiss="modal"
+                                        data-bs-target="#modal" id="addAdminModalClose">Cancel</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- modal for removing users of group -->
+                <div class="modal fade" id="removeUserModal">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header" style="background-color: #0a399ebe;">
+                                Remove Users from group</div>
+                            <div class="modal-body" style="background-color: #cde2e4">
+                                <form id="removeUserForm">
+                                    <div id="removeUserList" class="pre-scrollable"></div>
+                                    <div id="error-message2" style="color: red;
+                                                        font-size: 14px;
+                                                        margin-top: 5px;"></div>
+                                </form>
+                                <div class="modal-footer" style="background-color: #cde2e4">
+                                    <button class="btn btn-outline-success" type="submit" id="removeUserButton"
+                                        form="removeUserForm">Remove</button>
+                                    <button class="btn btn-outline-danger" data-bs-dismiss="modal"
+                                        data-bs-target="#modal" id="removeUserModalClose">Cancel</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- modal for adding users to an existing group -->
+                <div class="modal fade" id="addUserModal">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header" style="background-color: #0a399ebe;">
+                                Add Users to group</div>
+                            <div class="modal-body" style="background-color: #cde2e4">
+                                <form id="addUserForm">
+                                    <div id="addUserList" class="pre-scrollable"></div>
+                                    <div id="error-message3" style="color: red;
+                                                        font-size: 14px;
+                                                        margin-top: 5px;"></div>
+                                </form>
+                                <div class="modal-footer" style="background-color: #cde2e4">
+                                    <button class="btn btn-outline-success" type="submit" id="addUserButton"
+                                        form="addUserForm">Add</button>
+                                    <button class="btn btn-outline-danger" data-bs-dismiss="modal"
+                                        data-bs-target="#modal" id="addUserModalClose">Cancel</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <!-- group list -->
                 <div class="chatShrink flex-grow-1 overflow-auto row">
                     <div class="list-group p-2 mb-2 border rounded text-primary" id="groupList" role="tablist"></div>
@@ -58,6 +148,7 @@
                     <div class="dropdown ms-auto">
                         <button class="btn btn-primary dropdown-toggle" type="button" data-bs-toggle="dropdown"
                             aria-expanded="false"></button>
+                        <ul class="dropdown-menu" id="dropdownMenu"></ul>
                     </div>
                     <div class="chat-messages flex-grow-1 overflow-auto p-2" id="chatMessages">
                         <!-- <div class="message"></div> -->
