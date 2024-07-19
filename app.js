@@ -2,6 +2,8 @@ const express = require("express");
 const cors = require("cors");
 const bodyParser = require("body-parser");
 const path = require("path");
+const socketIo = require("socket.io");
+const http = require("http");
 require("dotenv").config();
 
 const port = process.env.PORT || 3000;
@@ -19,12 +21,27 @@ const groupRoutes = require("./routes/group");
 const adminRoutes = require("./routes/admin");
 
 const app = express();
+const server = http.createServer(app);
+const io = socketIo(server);
 
 app.use(cors({ origin: "*", method: ["GET", "POST"] }));
 app.use(express.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(express.static(path.join(__dirname, "public")));
 app.use(express.static("views"));
+
+// Handle a socket connection request from web client
+io.on("connection", (socket) => {
+  console.log("New client connected", socket.id);
+  // Handle a custom event from the client
+  socket.on("send-message", (message) => {
+    // console.log(message.message);
+    socket.broadcast.emit("receive-message", message);
+  });
+  socket.on("disconnect", () => {
+    console.log("Client disconnected");
+  });
+});
 
 app.use("/", userRoutes);
 app.use("/home", mainRoutes);
@@ -48,7 +65,7 @@ sequelize
   // .sync({ force: true })
   .sync()
   .then(() => {
-    app.listen(port, () => {
+    server.listen(port, () => {
       console.log("app is listening to port ", port);
     });
   })

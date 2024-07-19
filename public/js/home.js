@@ -1,5 +1,11 @@
+import { io } from "https://cdn.socket.io/4.4.1/socket.io.esm.min.js";
+const socket = io();
+
 const token = localStorage.getItem("token");
 let groupId;
+
+const chats = document.getElementById("chat");
+chats.addEventListener("submit", addMessage);
 
 //for adding admin
 const addAdminForm = document.getElementById("addAdminForm");
@@ -13,21 +19,51 @@ addUserForm.addEventListener("submit", addUsers);
 const removeUserForm = document.getElementById("removeUserForm");
 removeUserForm.addEventListener("submit", removeUser);
 
+//for creating group
+const groupForm = document.getElementById("createGroup");
+groupForm.addEventListener("submit", createGroup);
+
 async function addMessage(e) {
   e.preventDefault();
   let message = document.getElementById("inputMessage").value;
-  // console.log(groupId);
-  let myObj = {
-    message: message,
-    groupId: groupId,
-  };
   try {
-    const add = await axios.post("/home", myObj, {
-      headers: { Authorization: token },
-    });
-    myObj = add.data;
-    createListItem(myObj);
-    // updateLocalStorage(myObj);
+    const files = fileInput.files;
+    if (message.trim() === "" && files.length === 0) {
+      return;
+    }
+    const formData = new FormData();
+    if (files.length > 10) {
+      console.error("You cannot send more than 10 files at once !");
+      return;
+    }
+    // Check file size and append to formData
+    for (let i = 0; i < files.length; i++) {
+      if (files[i].size <= 5 * 1024 * 1024) {
+        // 5MB limit
+        formData.append("files", files[i]);
+      } else {
+        console.error(
+          `File ${files[i].name} exceeds the size limit (10MB) and won't be uploaded.`
+        );
+      }
+    }
+    const groupId = localStorage.getItem("groupId");
+    formData.append("text", message);
+    const add = await axios.post(
+      `/home/add-message?groupId=${groupId}`,
+      formData,
+      {
+        headers: {
+          Authorization: token,
+          "Content-Type": "multipart/form-data",
+        },
+      }
+    );
+    if (add) {
+      socket.emit("send-message", add.data.chatDetails);
+    }
+    createListItem(add.data.chatDetails);
+    updateLocalStorage(add.data.chatDetails);
     clearFormInput();
   } catch (err) {
     console.log(err);
@@ -50,13 +86,39 @@ function createListItem(myObj) {
   const messages = JSON.parse(localStorage.getItem("messages")) || [];
   const user = messages.find((message) => message.userId === myObj.userId);
   const userName = user && user.user ? user.user.name : "Unknown";
-  const chatMessages = document.getElementById("chatMessages");
   const userMessage = document.createElement("div");
   userMessage.className = "message";
-  userMessage.innerText = `${
-    myObj.userId === currentUserId ? "You" : userName
-  }: ${myObj.message}`;
-  chatMessages.appendChild(userMessage);
+  const isCurrentUser = myObj.userId === currentUserId;
+  userMessage.style.backgroundColor = isCurrentUser ? "#1F74F5" : "#7AADFB";
+  const nameSpan = document.createElement("span");
+  nameSpan.className = "fw-bold";
+  nameSpan.textContent = isCurrentUser ? "You" : userName;
+  userMessage.appendChild(nameSpan);
+  if (myObj.fileStatus === false) {
+    userMessage.appendChild(document.createTextNode(`: ${myObj.message}`));
+  } else {
+    const fileUrl = JSON.parse(myObj.fileUrl)[0];
+    const a = document.createElement("a");
+    a.href = fileUrl.Url;
+    if (fileUrl.type.includes("image")) {
+      const img = document.createElement("img");
+      img.src = fileUrl.Url;
+      img.width = 300;
+      img.height = 200;
+      a.appendChild(img);
+    } else {
+      a.download = fileUrl.name;
+      a.textContent = fileUrl.name;
+    }
+    userMessage.appendChild(document.createTextNode(": "));
+    userMessage.appendChild(a);
+    if (myObj.message) {
+      const messageP = document.createElement("p");
+      messageP.textContent = myObj.message;
+      userMessage.appendChild(messageP);
+    }
+  }
+  document.getElementById("chatMessages").appendChild(userMessage);
 }
 
 // remove chat messages
@@ -80,17 +142,42 @@ function parseJwt(token) {
   return JSON.parse(jsonPayload);
 }
 
+function handleKeyPress(e) {
+  if (e.key === "Enter") {
+    addMessage(e);
+  }
+}
+
 let intervalId;
+let fileAddon = document.getElementById("file-addon");
+let fileInput = document.getElementById("file-input");
 
 window.addEventListener("DOMContentLoaded", async () => {
   if (!token) {
     window.location.href = "/login";
   }
+  groupId = localStorage.getItem("groupId");
   try {
+    const button = document.getElementById("sendBtn");
+    const input = document.getElementById("inputMessage");
+    if (button) {
+      button.addEventListener("click", addMessage);
+    }
+    if (input) {
+      input.addEventListener("keydown", handleKeyPress);
+    }
+    fileAddon.addEventListener("click", () => {
+      fileInput.click();
+    });
+    fileInput.addEventListener("change", () => {
+      const fileName = fileInput.value.split("\\").pop();
+    });
     // await refreshMessages();
     await displayAllUsers();
     await getGroupsOnReload();
-    // intervalId = setInterval(refreshMessages, 6000);
+    await permission();
+    await showGroupInfo();
+    // intervalId = setInterval(refreshMessages, 6000); // This is known as POlling.
   } catch (err) {
     console.error(err);
   }
@@ -223,13 +310,29 @@ async function showAllChats(e) {
         createListItem(item);
       });
     }
-    creatingDropdownButton();
-    showGroupInfo();
-    permission();
+    if (groupId) {
+      creatingDropdownButton();
+      showGroupInfo();
+      permission();
+    }
   } catch (err) {
     console.error(err);
   }
 }
+
+//showing chats on realtime
+socket.on("receive-message", (message) => {
+  // console.log("Received message:", message);
+  if (message.groupId == localStorage.getItem("groupId")) {
+    const messages = JSON.parse(localStorage.getItem("messages")) || [];
+    messages.push(message.message);
+    if (messages.length > 10) {
+      messages.shift();
+    }
+    localStorage.setItem("messages", JSON.stringify(messages));
+    createListItem(message);
+  }
+});
 
 //getting user's group from backend
 async function getGroupsOnReload() {
@@ -297,47 +400,56 @@ function creatingDropdownButton() {
 
 async function showGroupInfo() {
   groupId = localStorage.getItem("groupId");
-  const res1 = await axios.get(`group/showUsersOfGroup?groupId=${groupId}`, {
-    headers: { Authorization: token },
-  });
-  // console.log(res1.data.users[0].users[0].name);
-  //Displaying group Name
-  document.getElementById(
-    "groupInfoGroupName"
-  ).innerHTML = `${res1.data.users[0].groupName}`;
-  //displaying Number of Members in the group
-  document.getElementById(
-    "groupInfoMemberCount"
-  ).innerHTML = `Group :${res1.data.users[0].users.length} members`;
-  //for displaying members of group
-  const memberList = document.getElementById("groupInfoMemberList");
-  memberList.innerHTML = "";
-  const a = document.createElement("h4");
-  a.innerHTML = "Group Members";
-  memberList.append(a);
-  for (let i = 0; i < res1.data.users[0].users.length; i++) {
-    const li = document.createElement("li");
-    li.className = "list-group-item";
-    li.appendChild(
-      document.createTextNode(`${res1.data.users[0].users[i].name}`)
-    );
-    memberList.append(li);
-  }
-  //displaying Admins of group
-  const adminList = document.getElementById("groupInfoadminList");
-  adminList.innerHTML = "";
-  const h4 = document.createElement("h4");
-  h4.innerHTML = "Group Admins";
-  adminList.append(h4);
-  const res2 = await axios.get(`/group/getGroupAdmins?groupId=${groupId}`, {
-    headers: { Authorization: token },
-  });
-  // console.log(res2.data.admins);
-  for (let i = 0; i < res2.data.admins.length; i++) {
-    const li = document.createElement("li");
-    li.className = "list-group-item";
-    li.appendChild(document.createTextNode(`${res2.data.admins[i]}`));
-    adminList.append(li);
+  try {
+    if (groupId !== null) {
+      const res1 = await axios.get(
+        `group/showUsersOfGroup?groupId=${groupId}`,
+        {
+          headers: { Authorization: token },
+        }
+      );
+      // console.log(res1.data.users[0].users[0].name);
+      //Displaying group Name
+      document.getElementById(
+        "groupInfoGroupName"
+      ).innerHTML = `${res1.data.users[0].groupName}`;
+      //displaying Number of Members in the group
+      document.getElementById(
+        "groupInfoMemberCount"
+      ).innerHTML = `Group :${res1.data.users[0].users.length} members`;
+      //for displaying members of group
+      const memberList = document.getElementById("groupInfoMemberList");
+      memberList.innerHTML = "";
+      const a = document.createElement("h4");
+      a.innerHTML = "Group Members";
+      memberList.append(a);
+      for (let i = 0; i < res1.data.users[0].users.length; i++) {
+        const li = document.createElement("li");
+        li.className = "list-group-item";
+        li.appendChild(
+          document.createTextNode(`${res1.data.users[0].users[i].name}`)
+        );
+        memberList.append(li);
+      }
+      //displaying Admins of group
+      const adminList = document.getElementById("groupInfoadminList");
+      adminList.innerHTML = "";
+      const h4 = document.createElement("h4");
+      h4.innerHTML = "Group Admins";
+      adminList.append(h4);
+      const res2 = await axios.get(`/group/getGroupAdmins?groupId=${groupId}`, {
+        headers: { Authorization: token },
+      });
+      // console.log(res2.data.admins);
+      for (let i = 0; i < res2.data.admins.length; i++) {
+        const li = document.createElement("li");
+        li.className = "list-group-item";
+        li.appendChild(document.createTextNode(`${res2.data.admins[i]}`));
+        adminList.append(li);
+      }
+    }
+  } catch (err) {
+    console.error(err);
   }
 }
 

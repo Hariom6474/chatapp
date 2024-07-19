@@ -2,6 +2,10 @@ const path = require("path");
 const ChatHistory = require("../models/chatHistory");
 const User = require("../models/user");
 const { Op } = require("sequelize");
+const sequelize = require("../util/database");
+const { uploadToS3 } = require("../services/s3service");
+const { log } = require("console");
+require("aws-sdk/lib/maintenance_mode_message").suppress = true;
 
 exports.user = async (req, res, next) => {
   await res.sendFile(path.join(__dirname, "../views", "home.html"), (err) => {
@@ -15,22 +19,61 @@ exports.user = async (req, res, next) => {
 };
 
 exports.postAddMessage = async (req, res, next) => {
+  const t = await sequelize.transaction();
   try {
-    const { message, groupId } = req.body;
+    let message = req.body.text;
+    let files = req.files;
+    const groupId = req.query.groupId;
     const userId = req.user.id;
-    if (message == undefined || message.length === 0 || groupId == undefined) {
+    if (
+      message === undefined ||
+      message.length === 0 ||
+      groupId === undefined
+    ) {
       return res
         .status(400)
         .json({ success: false, message: "Parameters missing!" });
     }
-    const data = await ChatHistory.create({
-      message: message,
-      userId: userId,
-      groupId: groupId,
-    });
-    res.status(201).json(data);
-    // console.log(data);
+    let data;
+    if (files.length === 0) {
+      data = await ChatHistory.create(
+        {
+          message: message,
+          userId: userId,
+          userName: req.user.name,
+          groupId: groupId,
+          fileStatus: false,
+        },
+        { transaction: t }
+      );
+    } else {
+      const fileUrls = [];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const body = require("fs").createReadStream(file.path);
+        const fileName = `${file.originalname}_${new Date()}`;
+        const ContentType = file.mimetype;
+        const Url = await uploadToS3(ContentType, body, fileName);
+        fileUrls.push({ Url: Url, type: ContentType, name: file.originalname });
+
+        require("fs").unlinkSync(file.path);
+      }
+      data = await ChatHistory.create(
+        {
+          message: message,
+          userId: req.user.id,
+          userName: req.user.name,
+          groupId: groupId,
+          fileStatus: true,
+          fileUrl: JSON.stringify(fileUrls),
+        },
+        { transaction: t }
+      );
+    }
+    await t.commit();
+    res.status(201).json({ chatDetails: data });
   } catch (err) {
+    await t.rollback();
     console.log(err);
     res.status(500).json({ error: err });
   }
